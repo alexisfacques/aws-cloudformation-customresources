@@ -1,0 +1,793 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform:
+- AWS::LanguageExtensions
+
+Description: Configure Lambda-backed CloudFormation custom resources to be used by CloudFormation stacks in this
+             Organization accounts.
+
+Parameters:
+
+  SchemaRegistryName:
+    AllowedPattern: ^(lambda-testevent-schemas|arn:[^\s:]+:schemas:[^\s:]+:[0-9]{12}:registry\/[^\s:]+)?$
+    ConstraintDescription: If set, you must specify a valid custom AWS EventBridge Schema registry Amazon Resource
+                           Name (ARN), or 'lambda-testevent-schemas'.
+    Default: ""
+    Description: Optionally, the Amazon Resource Name (ARN) or the Schema registry to which schemas of AWS Lambda
+                 invocation events will be saved to.
+    Type: String
+
+  TagApplication:
+    AllowedPattern: ^[0-9a-zA-Z-]+$
+    ConstraintDescription: The 'Application' tag must only contain uppercased, lowercased letters or number. Dashes
+                           ('-') should only be used to when prepending an nested CloudFormation stack tag with its
+                           parents.
+    Default: customresources
+    Description: A unique friendly name, prepended to all resources names (when applicable), used to identify resources
+                 deployed by this stack.
+    Type: String
+
+  TagEnvironment:
+    AllowedValues:
+    - dev
+    - prod
+    ConstraintDescription: You must specify either 'dev' or 'prod'.
+    Default: prod
+    Description: An environment name that will be tagged to all deployed resources.
+    Type: String
+
+  TransformMacroName:
+    Default: CustomResources
+    Description: The CloudFormation template 'Transform' macro name, that will replace custom resources types by their
+                 corresponding service token. Defaults to 'CustomResources'.
+    Type: String
+
+  TransformCustomResourcesPrefix:
+    AllowedPattern: ^(\S+::)?$
+    ConstraintDescription: If set, the 'TransformCustomResourcesPrefix' parameter must only contain non-whitespace
+                           characters and end with '::'.
+    Default: ""
+    Description: A prefix used to identify custom resources to replace by the template 'Transform' macro. Defaults to
+                 to 'TransformMacroName' parameter.
+    Type: String
+
+Outputs:
+
+  BotohookServiceToken:
+    Description: The Amazon Resource Name (ARN) of the Lambda-backed BotoHook CloudFormation custom resource.
+    Value:
+      Fn::GetAtt:
+      - BotohookFunction
+      - Arn
+    Export:
+      Name:
+        Fn::Join:
+        - ":"
+        - - Ref: AWS::AccountId
+          - Ref: AWS::Region
+          - Ref: TagApplication
+          - botohook-service-token
+
+  BotohookFunctionExecutionRoleArn:
+    Description: The Amazon Resource Name (ARN) of the Lambda-backed BotoHook CloudFormation custom resource execution
+                 role.
+    Value:
+      Fn::GetAtt:
+      - BotohookFunctionRole
+      - Arn
+    Export:
+      Name:
+        Fn::Join:
+        - ":"
+        - - Ref: AWS::AccountId
+          - Ref: AWS::Region
+          - Ref: TagApplication
+          - botohook-function-execution-role-arn
+
+  BotohookFunctionExecutionRoleId:
+    Description: The identifier (ID) of the Lambda-backed BotoHook CloudFormation custom resource execution role.
+    Value:
+      Ref: BotohookFunctionRole
+    Export:
+      Name:
+        Fn::Join:
+        - ":"
+        - - Ref: AWS::AccountId
+          - Ref: AWS::Region
+          - Ref: TagApplication
+          - botohook-function-execution-role-id
+
+  TransformMacroFunctionArn:
+    Description: The Amazon Resource Name (ARN) of the Lambda-backed Transform CloudFormation custom resource macro.
+    Value:
+      Fn::GetAtt:
+      - TransformFunction
+      - Arn
+    Export:
+      Name:
+        Fn::Join:
+        - ":"
+        - - Ref: AWS::AccountId
+          - Ref: AWS::Region
+          - Ref: TagApplication
+          - transform-function-arn
+
+Conditions:
+
+  HasTransformCustomResourcesPrefix:
+    Fn::Not:
+    - Fn::Equals:
+      - ""
+      - Ref: TransformCustomResourcesPrefix
+
+  HasSchemaRegistryName:
+    Fn::Not:
+    - Fn::Equals:
+      - ""
+      - Ref: SchemaRegistryName
+
+Resources:
+
+#######################################################################################################################
+# \/                                     Botohook custom resource configuration                                    \/ #
+#######################################################################################################################
+
+  BotohookFunctionEventSchema:
+    Type: AWS::EventSchemas::Schema
+    Condition: HasSchemaRegistryName
+    Properties:
+      Content:
+        Fn::ToJsonString:
+          openapi: 3.0.0
+          info:
+            title: BotohookFunctionEventSchema
+            version: 1.0.0
+          paths: {}
+          components:
+            schemas:
+              BotoParameters:
+                type: object
+              HookProperties:
+                type: object
+                properties:
+                  Client:
+                    type: string
+                  Method:
+                    type: string
+                  Parameters:
+                    $ref: "#/components/schemas/BotoParameters"
+                  PhysicalResourceId:
+                    type: string
+                required:
+                - Client
+                - Method
+                - Parameters
+              ResourceProperties:
+                type: object
+                properties:
+                  ServiceToken:
+                    type: string
+                  Create:
+                    $ref: "#/components/schemas/HookProperties"
+                  Update:
+                    $ref: "#/components/schemas/HookProperties"
+                  Delete:
+                    $ref: "#/components/schemas/HookProperties"
+                required:
+                - ServiceToken
+              Event:
+                type: object
+                properties:
+                  RequestType:
+                    type: string
+                  ServiceToken:
+                    type: string
+                  ResponseURL:
+                    type: string
+                  StackId:
+                    type: string
+                  RequestId:
+                    type: string
+                  LogicalResourceId:
+                    type: string
+                  PhysicalResourceId:
+                    type: string
+                  ResourceType:
+                    type: string
+                  ResourceProperties:
+                    $ref: "#/components/schemas/ResourceProperties"
+                required:
+                - RequestType
+                - ServiceToken
+                - ResponseURL
+                - StackId
+                - RequestId
+                - LogicalResourceId
+                - ResourceType
+                - ResourceProperties
+            examples:
+              CreateS3Object:
+                value:
+                  RequestType: Create
+                  ServiceToken:
+                    Fn::GetAtt:
+                    - BotohookFunction
+                    - Arn
+                  ResponseURL: https://PRESIGNED_CLOUDFORMATION_MANAGED_S3_URL
+                  StackId:
+                    Fn::Join:
+                    - ":"
+                    - - arn
+                      - Ref: AWS::Partition
+                      - cloudformation
+                      - Ref: AWS::Region
+                      - Ref: AWS::AccountId
+                      - stack/EXAMPLE-STACK_NAME/ceb2af20-adc6-11ed-b332-0606dEXAMPLE
+                  RequestId: 0fb77e5f-d93f-4343-99fd-4491aEXAMPLE
+                  LogicalResourceId: S3ObjectBotoHook
+                  ResourceType: Custom::BotoHook
+                  ResourceProperties:
+                    ServiceToken:
+                      Fn::GetAtt:
+                      - BotohookFunction
+                      - Arn
+                    Create:
+                      Parameters:
+                        Bucket: testBucketName
+                        Key: testBucketKey
+                        Body: Hello, World!
+                      Method: put_object
+                      Client: s3
+      Description:
+        Fn::Sub: |
+          Invoking event schema for the '${BotohookFunction}' lambda function. This lambda function is used by the
+          CloudFormation service as a custom resource.
+          @see 'https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-requests.html'
+      RegistryName:
+        Ref: SchemaRegistryName
+      SchemaName:
+        Fn::Sub: _${BotohookFunction}-schema
+      Tags:
+      - Key: custom:application
+        Value: !Ref TagApplication
+      - Key: custom:environment
+        Value: !Ref TagEnvironment
+      - Key: custom:stackName
+        Value: !Ref AWS::StackName
+      - Key: custom:stackOwner
+        Value: !Ref AWS::AccountId
+      Type: OpenApi3
+
+  BotohookFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # KmsKeyId:
+      #   Fn::ImportValue:
+      #     Fn::Join:
+      #     - ":"
+      #     - - Ref: AWS::AccountId
+      #       - Ref: AWS::Region
+      #       - account-kms
+      #       - unrestricted-key-arn
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${BotohookFunction}
+      RetentionInDays: 30
+
+  BotohookFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Description:
+        Fn::Sub:
+        - A role to be assumed by the 'lambda.amazonaws.com' service, which has the permissions required to
+          execute the '${FunctionName}' Lambda function.
+        - FunctionName:
+            Fn::Join:
+            - "-"
+            - - Ref: TagApplication
+              - botohook
+      MaxSessionDuration: 43200
+      Path:
+        Fn::Join:
+        - ""
+        - - /
+          - Fn::Join:
+            - /
+            - Fn::Split:
+              - "-"
+              - Ref: TagApplication
+          - /
+      RoleName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - botohook
+      Tags:
+      - Key: custom:application
+        Value:
+          Ref: TagApplication
+      - Key: custom:environment
+        Value:
+          Ref: TagEnvironment
+      - Key: custom:stackName
+        Value:
+          Ref: AWS::StackName
+      - Key: custom:stackOwner
+        Value:
+          Ref: AWS::AccountId
+
+  BotohookFunctionRoleLogsPutLogEventsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ":"
+            - - arn
+              - Ref: AWS::Partition
+              - logs
+              - Ref: AWS::Region
+              - Ref: AWS::AccountId
+              - "*"
+      PolicyName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - logs
+          - put_log_events
+      Roles:
+      - Ref: BotohookFunctionRole
+
+  BotohookFunctionRoleSchemasDescribeSchemaPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasSchemaRegistryName
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - schemas:DescribeSchema
+          Effect: Allow
+          Resource:
+          - Ref: BotohookFunctionEventSchema
+      PolicyName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - schemas
+          - describe_schema
+      Roles:
+      - Ref: BotohookFunctionRole
+
+  BotohookFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+      - x86_64
+      Code: ./botohook/
+      Description: A Lambda-backed CloudFormation custom resource to call any Boto client method at any stage of
+                   the CloudFormation stack deployment (Create, Update, Delete).
+      Environment:
+        Variables:
+          LOG_LEVEL: DEBUG
+      EphemeralStorage:
+         Size: 512
+      FunctionName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - botohook
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      PackageType: Zip
+      ReservedConcurrentExecutions:
+        Ref: AWS::NoValue
+      Role:
+        Fn::GetAtt:
+        - BotohookFunctionRole
+        - Arn
+      Runtime: python3.9
+      Tags:
+      - Key: custom:application
+        Value:
+          Ref: TagApplication
+      - Key: custom:environment
+        Value:
+          Ref: TagEnvironment
+      - Key: custom:stackName
+        Value:
+          Ref: AWS::StackName
+      - Key: custom:stackOwner
+        Value:
+          Ref: AWS::AccountId
+      Timeout: 10
+
+#######################################################################################################################
+# \/                                          Transform macro configuration                                        \/ #
+#######################################################################################################################
+
+  TransformFunctionEventSchema:
+    Type: AWS::EventSchemas::Schema
+    Condition: HasSchemaRegistryName
+    Properties:
+      Content:
+        Fn::ToJsonString:
+          openapi: 3.0.0
+          info:
+            title: TransformFunctionEventSchema
+            version: 1.0.0
+          paths: {}
+          components:
+            schemas:
+              Event:
+                type: object
+                properties:
+                  accountId:
+                    type: string
+                  fragment:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      Resources:
+                        type: object
+                    required:
+                    - Resources
+                  transformId:
+                    type: string
+                  requestId:
+                    type: string
+                  region:
+                    type: string
+                  params:
+                    type: object
+                  templateParameterValues:
+                    type: object
+                required:
+                - accountId
+                - fragment
+                - transformId
+                - requestId
+                - region
+                - params
+                - templateParameterValues
+            examples:
+              CreateS3Object:
+                value:
+                  RequestType: Create
+                  ServiceToken:
+                    Fn::GetAtt:
+                    - TransformFunction
+                    - Arn
+                  ResponseURL: https://PRESIGNED_CLOUDFORMATION_MANAGED_S3_URL
+                  StackId:
+                    Fn::Join:
+                    - ":"
+                    - - arn
+                      - Ref: AWS::Partition
+                      - cloudformation
+                      - Ref: AWS::Region
+                      - Ref: AWS::AccountId
+                      - stack/EXAMPLE-STACK_NAME/ceb2af20-adc6-11ed-b332-0606dEXAMPLE
+                  RequestId: 0fb77e5f-d93f-4343-99fd-4491aEXAMPLE
+                  LogicalResourceId: S3ObjectTransform
+                  ResourceType: Custom::Transform
+                  ResourceProperties:
+                    ServiceToken:
+                      Fn::GetAtt:
+                      - TransformFunction
+                      - Arn
+                    Create:
+                      Parameters:
+                        Bucket: testBucketName
+                        Key: testBucketKey
+                        Body: Hello, World!
+                      Method: put_object
+                      Client: s3
+      Description:
+        Fn::Sub: |
+          Invoking event schema for the '${TransformFunction}' lambda function. This lambda function is used by the
+          CloudFormation as a  macro.
+          @see 'https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html'
+      RegistryName:
+        Ref: SchemaRegistryName
+      SchemaName:
+        Fn::Sub: _${TransformFunction}-schema
+      Tags:
+      - Key: custom:application
+        Value: !Ref TagApplication
+      - Key: custom:environment
+        Value: !Ref TagEnvironment
+      - Key: custom:stackName
+        Value: !Ref AWS::StackName
+      - Key: custom:stackOwner
+        Value: !Ref AWS::AccountId
+      Type: OpenApi3
+
+  TransformFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # KmsKeyId:
+      #   Fn::ImportValue:
+      #     Fn::Join:
+      #     - ":"
+      #     - - Ref: AWS::AccountId
+      #       - Ref: AWS::Region
+      #       - account-kms
+      #       - unrestricted-key-arn
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${TransformFunction}
+      RetentionInDays: 30
+
+  TransformFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+      Description:
+        Fn::Sub:
+        - A role to be assumed by the 'lambda.amazonaws.com' service, which has the permissions required to
+          execute the '${FunctionName}' Lambda function.
+        - FunctionName:
+            Fn::Join:
+            - "-"
+            - - Ref: TagApplication
+              - transform
+      MaxSessionDuration: 43200
+      Path:
+        Fn::Join:
+        - ""
+        - - /
+          - Fn::Join:
+            - /
+            - Fn::Split:
+              - "-"
+              - Ref: TagApplication
+          - /
+      RoleName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - transform
+      Tags:
+      - Key: custom:application
+        Value:
+          Ref: TagApplication
+      - Key: custom:environment
+        Value:
+          Ref: TagEnvironment
+      - Key: custom:stackName
+        Value:
+          Ref: AWS::StackName
+      - Key: custom:stackOwner
+        Value:
+          Ref: AWS::AccountId
+
+  TransformFunctionRoleLogsPutLogEventsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ":"
+            - - arn
+              - Ref: AWS::Partition
+              - logs
+              - Ref: AWS::Region
+              - Ref: AWS::AccountId
+              - "*"
+      PolicyName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - logs
+          - put_log_events
+      Roles:
+      - Ref: TransformFunctionRole
+
+  TransformFunctionRoleSchemasDescribeSchemaPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasSchemaRegistryName
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - schemas:DescribeSchema
+          Effect: Allow
+          Resource:
+          - Ref: TransformFunctionEventSchema
+      PolicyName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - schemas
+          - describe_schema
+      Roles:
+      - Ref: TransformFunctionRole
+
+  TransformFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+      - x86_64
+      Code: ./transform/
+      Description: A Lambda-backed CloudFormation macro replacing custom CloudFormation resource types with their
+                   corresponding 'AWS::CloudFormation::CustomResource' service token.
+      Environment:
+        Variables:
+          LOG_LEVEL: DEBUG
+          RESOURCE_TYPE_PREFIX:
+            Fn::If:
+            - HasTransformCustomResourcesPrefix
+            - Ref: TransformCustomResourcesPrefix
+            - Fn::Sub: "${TransformMacroName}::"
+          RESOURCE_TYPE_SERVICE_TOKENS:
+            Fn::Sub: |
+              {
+                "Boto::Hook": "${BotohookFunction.Arn}"
+              }
+      EphemeralStorage:
+         Size: 512
+      FunctionName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - transform
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      PackageType: Zip
+      ReservedConcurrentExecutions:
+        Ref: AWS::NoValue
+      Role:
+        Fn::GetAtt:
+        - TransformFunctionRole
+        - Arn
+      Runtime: python3.9
+      Tags:
+      - Key: custom:application
+        Value:
+          Ref: TagApplication
+      - Key: custom:environment
+        Value:
+          Ref: TagEnvironment
+      - Key: custom:stackName
+        Value:
+          Ref: AWS::StackName
+      - Key: custom:stackOwner
+        Value:
+          Ref: AWS::AccountId
+      Timeout: 10
+
+  TransformMacroLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # KmsKeyId:
+      #   Fn::ImportValue:
+      #     Fn::Join:
+      #     - ":"
+      #     - - Ref: AWS::AccountId
+      #       - Ref: AWS::Region
+      #       - account-kms
+      #       - unrestricted-key-arn
+      LogGroupName:
+        Fn::Sub: /aws/cloudformation/${TransformFunction}
+      RetentionInDays: 30
+
+  TransformMacroRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - cloudformation.amazonaws.com
+
+      Description: A role to be assumed by the 'cloudformation.amazonaws.com' service, which has the permissions
+                   required to log to CloudWatch logs.
+      MaxSessionDuration: 43200
+      Path:
+        Fn::Join:
+        - ""
+        - - /
+          - Fn::Join:
+            - /
+            - Fn::Split:
+              - "-"
+              - Ref: TagApplication
+          - /
+      RoleName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - transform
+          - macro
+      Tags:
+      - Key: custom:application
+        Value:
+          Ref: TagApplication
+      - Key: custom:environment
+        Value:
+          Ref: TagEnvironment
+      - Key: custom:stackName
+        Value:
+          Ref: AWS::StackName
+      - Key: custom:stackOwner
+        Value:
+          Ref: AWS::AccountId
+
+  TransformMacroRoleLogsPutLogEventsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ":"
+            - - arn
+              - Ref: AWS::Partition
+              - logs
+              - Ref: AWS::Region
+              - Ref: AWS::AccountId
+              - "*"
+      PolicyName:
+        Fn::Join:
+        - "-"
+        - - Ref: TagApplication
+          - logs
+          - put_log_events
+      Roles:
+      - Ref: TransformMacroRole
+
+  TransformMacro:
+    Type: AWS::CloudFormation::Macro
+    Properties:
+      Description: Replaces custom CloudFormation resource types with their corresponding
+                   'AWS::CloudFormation::CustomResource' service token, if any.
+      FunctionName:
+        Fn::GetAtt:
+        - TransformFunction
+        - Arn
+      LogGroupName:
+        Ref: TransformMacroLogGroup
+      LogRoleARN:
+        Fn::GetAtt:
+        - TransformMacroRole
+        - Arn
+      Name:
+        Ref: TransformMacroName

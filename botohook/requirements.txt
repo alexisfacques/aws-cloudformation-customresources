@@ -1,0 +1,3 @@
+crhelper==2.0.10
+jmespath==1.0.1
+flatdict==4.0.1
