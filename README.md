@@ -194,8 +194,7 @@ The `Fn::GetAtt` intrinsic function returns the Boto response of the `Create` ha
 
 You can add as many lifecycle hook handle to a `Boto::Hook` as needed:
 
-> If `BotoHook` will invoke the `Create` hook during both the resource `CREATE` and `UPDATE` lifecycle stages **unless you specify a custom `Update` handler**.
-As defined in the AWS Custom Resources specifications, the `DELETE` stage will be invoked with the old parameters if the `PhysicalResourceId` changes.
+> `BotoHook` will invoke the `Create` hook during both the resource `CREATE` and `UPDATE` lifecycle stages **unless you specify a custom `Update` handler**. As defined in the AWS Custom Resources specifications, after an `UPDATE` stage, the `DELETE` stage will be then invoked with the old parameters if the `PhysicalResourceId` returned by the custom resource handler changes.
 
 ```yaml
   PutObjectHook:
