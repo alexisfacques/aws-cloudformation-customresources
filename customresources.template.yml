@@ -22,9 +22,9 @@ Parameters:
     ConstraintDescription: If set, you must specify a valid custom AWS EventBridge Schema registry Amazon Resource
                            Name (ARN), or 'lambda-testevent-schemas'.
     Default: ""
-    Description: Optional - The Amazon Resource Name (ARN) or the Schema registry to which schemas of AWS Lambda
-                 functions invocation events will be saved to. This field can be a valid custom AWS EventBridge Schema
-                 registry ARN, or 'lambda-testevent-schemas'.
+    Description: Optional - The Amazon Resource Name (ARN) of a Schema registry to which schemas of AWS Lambda
+                 functions invocation events will be saved to. This field can be any valid custom AWS EventBridge
+                 Schema registry ARN, or 'lambda-testevent-schemas'.
     Type: String
 
   TagApplication:
@@ -34,14 +34,15 @@ Parameters:
                            parents.
     Default: customresources
     Description: A unique, friendly name used to identify resources deployed by this stack. It must only contain
-                 alphanumeric characters of dashes ('-'). Defaults to 'customresources'.
+                 alphanumeric characters and dashes ('-'). Defaults to 'customresources'.
     Type: String
 
   TransformMacroName:
     Default: CustomResources
-    Description: Optional - The name of the custom transform CloudFormation macro to add at the top level of a
-                 template. This macro is deployed alongside custom resources by this application, and lets you
-                 reference said custom resources using a human-friendly 'Type'. Defaults to 'CustomResources'.
+    Description: Optional - The name of the custom transform CloudFormation macro to add at the top level of your
+                 templates. This macro is deployed alongside the custom resources configured by this application, and
+                 lets you reference said custom resources using a human-friendly resource 'Type'. Defaults to
+                 'CustomResources'.
     Type: String
 
   TransformCustomResourcesPrefix:
@@ -49,9 +50,9 @@ Parameters:
     ConstraintDescription: If set, the 'TransformCustomResourcesPrefix' parameter must only contain non-whitespace
                            characters and end with '::'.
     Default: ""
-    Description: Optional - A prefix used to identify the custom resources to replace by the template transform macro.
-                 It must only contain non-whitespace characters and end with '::'. If left empty, it defaults to the
-                 'TransformMacroName' value (e.g. 'CustomResources::').
+    Description: Optional - A prefix used to identify the custom resources to be replaced by the template transform
+                 macro. It must only contain non-whitespace characters and end with '::'. If left empty, it defaults to
+                 the value of the 'TransformMacroName' parameter (e.g. 'CustomResources::').
     Type: String
 
 Outputs:
@@ -757,3 +758,29 @@ Resources:
         - Arn
       Name:
         Ref: TransformMacroName
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: General configuration
+      Parameters:
+      - TagApplication
+    - Label:
+        default: Transform macro configuration
+      Parameters:
+      - TransformMacroName
+      - TransformCustomResourcesPrefix
+    - Label:
+        default: Advanced configuration
+      Parameters:
+      - SchemaRegistryName
+    ParameterLabels:
+      SchemaRegistryName:
+        default: AWS Lambda schema registry name
+      TagApplication:
+        default: Application name
+      TransformMacroName:
+        default: Top-level transform macro name
+      TransformCustomResourcesPrefix:
+        default: Custom resources type prefix

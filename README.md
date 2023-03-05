@@ -36,7 +36,7 @@ This repository will continue to add more CloudFormation extensions, and contrib
 			- [Examples of use](#examples-of-use)
 			- [Known limitiations and workarounds](#known-limitiations-and-workarounds)
 	- [Installation](#installation)
-		- [Easy-installation using the CloudFormation `CreateStack` wizard](#easy-installation-using-the-cloudformation-createstack-wizard)
+		- [Easy installation using the CloudFormation `CreateStack` wizard](#easy-installation-using-the-cloudformation-createstack-wizard)
 		- [From source](#from-source)
 			- [Requirements](#requirements)
 			- [Step-by-step installation guide](#step-by-step-installation-guide)
@@ -609,9 +609,9 @@ OrganizationsDelegateRoute53SubdomainStackSet:
 
 ## Installation
 
-### Easy-installation using the CloudFormation `CreateStack` wizard
+### Easy installation using the CloudFormation `CreateStack` wizard
 
-You can easily deploy and test the latest version of application using the CloudFormation `CreateStack` wizard: [Click here to deploy this application to your AWS Account](https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?templateURL=https://public-177754923675-eu-west-1.s3.eu-west-1.amazonaws.com/customresources/918de473250eb1a1f7fe69295b56725c.template&param_TransformCustomResourcesPrefix=CustomResources%3A%3A).
+You can easily deploy and test the latest version of application using the CloudFormation `CreateStack` wizard: [Click here to deploy this application to your AWS Account](https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?templateURL=https://public-177754923675-eu-west-1.s3.eu-west-1.amazonaws.com/customresources/abbcf34a0679b1bb0f4187e23a43fe87.template&param_TransformCustomResourcesPrefix=CustomResources%3A%3A).
 
 ### From source
 
