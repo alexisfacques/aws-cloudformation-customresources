@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: Configure Lambda-backed CloudFormation custom resources to be used by other CloudFormation stacks in this
-             account or Organization accounts.
+Description: Configure a CloudFormation application deploying Lambda-backed CloudFormation custom resources to be used
+             by other CloudFormation stacks in this account or Organization accounts.
 
 Parameters:
 
@@ -11,8 +11,8 @@ Parameters:
                            ('-') should only be used to when prepending an nested CloudFormation stack tag with its
                            parents.
     Default: customresources
-    Description: A unique friendly name, prepended to all resources names (when applicable), used to identify resources
-                 deployed by this stack.
+    Description: A unique, friendly name used to identify resources deployed by this stack. It must only contain
+                 alphanumeric characters of dashes ('-'). Defaults to 'customresources'.
     Type: String
 
   TagEnvironment:
@@ -37,8 +37,6 @@ Resources:
       Parameters:
         TagApplication:
           Ref: TagApplication
-        TagEnvironment:
-          Ref: TagEnvironment
       Tags:
       - Key: custom:application
         Value:

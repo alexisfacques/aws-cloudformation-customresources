@@ -34,13 +34,15 @@ This repository will continue to add more CloudFormation extensions, and contrib
 			- [Properties](#properties)
 			- [Return values](#return-values)
 			- [Examples of use](#examples-of-use)
-			- [Known limitations and workarounds](#known-limitiations-and-workarounds)
+			- [Known limitiations and workarounds](#known-limitiations-and-workarounds)
 	- [Installation](#installation)
+		- [Easy-installation using the CloudFormation `CreateStack` wizard](#easy-installation-using-the-cloudformation-createstack-wizard)
 		- [From source](#from-source)
 			- [Requirements](#requirements)
 			- [Step-by-step installation guide](#step-by-step-installation-guide)
 	- [Contributing](#contributing)
 	- [License](#license)
+	- [Resources and references](#resources-and-references)
 
 <!-- /TOC -->
 
@@ -211,7 +213,7 @@ As defined in the AWS Custom Resources specifications, the `DELETE` stage will b
             Ref: Key
           Body: |
             Hello, world!
-      DeleteObjectHook:
+      Delete:
         Client: s3
         Method: delete_object
         Parameters:
@@ -608,6 +610,10 @@ OrganizationsDelegateRoute53SubdomainStackSet:
 
 ## Installation
 
+### Easy-installation using the CloudFormation `CreateStack` wizard
+
+You can easily deploy and test the latest version of application using the CloudFormation `CreateStack` wizard: [Click here to deploy this application to your AWS Account](https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?templateURL=https://public-177754923675-eu-west-1.s3.eu-west-1.amazonaws.com/customresources/918de473250eb1a1f7fe69295b56725c.template&param_TransformCustomResourcesPrefix=CustomResources%3A%3A).
+
 ### From source
 
 #### Requirements
@@ -623,20 +629,20 @@ Install the application with AWS SAM CLI as follows:
 
 - Build the application using AWS SAM:
   ```sh
-  sam build
+  sam build --template-file customresources.template.yml
   ```
 
 - Package the CloudFormation application by running the following command:
   ```sh
-  sam package --s3-bucket <your-s3-bucket-name> --output-template-file packaged.yaml
+  sam package --s3-bucket <your-s3-bucket-name> --template-file customresources.template.yml --output-template-file packaged.yaml
   ```
   > Replace `<your-s3-bucket-name>` with the name of an S3 bucket in your AWS account.
 
 - Deploy the CloudFormation application by running the following command:
   ```sh
-  sam deploy --template-file packaged.yaml --stack-name <your-stack-name> --capabilities CAPABILITY_NAMED_IAM --parameter-overrides TagEnvironment=<dev/prod>
+  sam deploy --template-file packaged.yaml --stack-name <your-stack-name> --capabilities CAPABILITY_NAMED_IAM
   ```
-  > Replace `<your-stack-name>` with a unique name for your CloudFormation stack and specify the environment tag by setting `TagEnvironment` to either `dev` or `prod`.
+  > Replace `<your-stack-name>` with a unique name for your CloudFormation stack
 
 Alternatively, you can also let SAM guide you through this process:
 

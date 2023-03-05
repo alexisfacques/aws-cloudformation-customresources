@@ -3,8 +3,17 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform:
 - AWS::LanguageExtensions
 
-Description: Configure Lambda-backed CloudFormation custom resources to be used by CloudFormation stacks in this
-             Organization accounts.
+Description: |
+  Configure a suite of lambda-backed custom resources and macros that extend the functionality of the CloudFormation
+  language, simplifying and streamlining AWS resources and services deployment and management.
+
+  This includes 'BotoHook', a custom resource that allows you to call any boto method for CREATE, UPDATE, or DELETE
+  CloudFormation resource lifecycle hooks and returns the complete Boto3 method response as 'Data' fields, which can be
+  retrieved in your configuration files using 'Fn::GetAtt'.
+
+  Last Modified: March 5, 2023.
+  Author: Alexis Facques <mail@alexisfacques.com>.
+  Url: https://github.com/alexisfacques/aws-cloudformation-customresources
 
 Parameters:
 
@@ -13,8 +22,9 @@ Parameters:
     ConstraintDescription: If set, you must specify a valid custom AWS EventBridge Schema registry Amazon Resource
                            Name (ARN), or 'lambda-testevent-schemas'.
     Default: ""
-    Description: Optionally, the Amazon Resource Name (ARN) or the Schema registry to which schemas of AWS Lambda
-                 invocation events will be saved to.
+    Description: Optional - The Amazon Resource Name (ARN) or the Schema registry to which schemas of AWS Lambda
+                 functions invocation events will be saved to. This field can be a valid custom AWS EventBridge Schema
+                 registry ARN, or 'lambda-testevent-schemas'.
     Type: String
 
   TagApplication:
@@ -23,23 +33,15 @@ Parameters:
                            ('-') should only be used to when prepending an nested CloudFormation stack tag with its
                            parents.
     Default: customresources
-    Description: A unique friendly name, prepended to all resources names (when applicable), used to identify resources
-                 deployed by this stack.
-    Type: String
-
-  TagEnvironment:
-    AllowedValues:
-    - dev
-    - prod
-    ConstraintDescription: You must specify either 'dev' or 'prod'.
-    Default: prod
-    Description: An environment name that will be tagged to all deployed resources.
+    Description: A unique, friendly name used to identify resources deployed by this stack. It must only contain
+                 alphanumeric characters of dashes ('-'). Defaults to 'customresources'.
     Type: String
 
   TransformMacroName:
     Default: CustomResources
-    Description: The CloudFormation template 'Transform' macro name, that will replace custom resources types by their
-                 corresponding service token. Defaults to 'CustomResources'.
+    Description: Optional - The name of the custom transform CloudFormation macro to add at the top level of a
+                 template. This macro is deployed alongside custom resources by this application, and lets you
+                 reference said custom resources using a human-friendly 'Type'. Defaults to 'CustomResources'.
     Type: String
 
   TransformCustomResourcesPrefix:
@@ -47,8 +49,9 @@ Parameters:
     ConstraintDescription: If set, the 'TransformCustomResourcesPrefix' parameter must only contain non-whitespace
                            characters and end with '::'.
     Default: ""
-    Description: A prefix used to identify custom resources to replace by the template 'Transform' macro. Defaults to
-                 to 'TransformMacroName' parameter.
+    Description: Optional - A prefix used to identify the custom resources to replace by the template transform macro.
+                 It must only contain non-whitespace characters and end with '::'. If left empty, it defaults to the
+                 'TransformMacroName' value (e.g. 'CustomResources::').
     Type: String
 
 Outputs:
@@ -249,26 +252,19 @@ Resources:
         Fn::Sub: _${BotohookFunction}-schema
       Tags:
       - Key: custom:application
-        Value: !Ref TagApplication
-      - Key: custom:environment
-        Value: !Ref TagEnvironment
+        Value:
+          Ref: TagApplication
       - Key: custom:stackName
-        Value: !Ref AWS::StackName
+        Value:
+          Ref: AWS::StackName
       - Key: custom:stackOwner
-        Value: !Ref AWS::AccountId
+        Value:
+          Ref: AWS::AccountId
       Type: OpenApi3
 
   BotohookFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      # KmsKeyId:
-      #   Fn::ImportValue:
-      #     Fn::Join:
-      #     - ":"
-      #     - - Ref: AWS::AccountId
-      #       - Ref: AWS::Region
-      #       - account-kms
-      #       - unrestricted-key-arn
       LogGroupName:
         Fn::Sub: /aws/lambda/${BotohookFunction}
       RetentionInDays: 30
@@ -314,9 +310,6 @@ Resources:
       - Key: custom:application
         Value:
           Ref: TagApplication
-      - Key: custom:environment
-        Value:
-          Ref: TagEnvironment
       - Key: custom:stackName
         Value:
           Ref: AWS::StackName
@@ -405,9 +398,6 @@ Resources:
       - Key: custom:application
         Value:
           Ref: TagApplication
-      - Key: custom:environment
-        Value:
-          Ref: TagEnvironment
       - Key: custom:stackName
         Value:
           Ref: AWS::StackName
@@ -508,26 +498,19 @@ Resources:
         Fn::Sub: _${TransformFunction}-schema
       Tags:
       - Key: custom:application
-        Value: !Ref TagApplication
-      - Key: custom:environment
-        Value: !Ref TagEnvironment
+        Value:
+          Ref: TagApplication
       - Key: custom:stackName
-        Value: !Ref AWS::StackName
+        Value:
+          Ref: AWS::StackName
       - Key: custom:stackOwner
-        Value: !Ref AWS::AccountId
+        Value:
+          Ref: AWS::AccountId
       Type: OpenApi3
 
   TransformFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      # KmsKeyId:
-      #   Fn::ImportValue:
-      #     Fn::Join:
-      #     - ":"
-      #     - - Ref: AWS::AccountId
-      #       - Ref: AWS::Region
-      #       - account-kms
-      #       - unrestricted-key-arn
       LogGroupName:
         Fn::Sub: /aws/lambda/${TransformFunction}
       RetentionInDays: 30
@@ -573,9 +556,6 @@ Resources:
       - Key: custom:application
         Value:
           Ref: TagApplication
-      - Key: custom:environment
-        Value:
-          Ref: TagEnvironment
       - Key: custom:stackName
         Value:
           Ref: AWS::StackName
@@ -674,9 +654,6 @@ Resources:
       - Key: custom:application
         Value:
           Ref: TagApplication
-      - Key: custom:environment
-        Value:
-          Ref: TagEnvironment
       - Key: custom:stackName
         Value:
           Ref: AWS::StackName
@@ -688,14 +665,6 @@ Resources:
   TransformMacroLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      # KmsKeyId:
-      #   Fn::ImportValue:
-      #     Fn::Join:
-      #     - ":"
-      #     - - Ref: AWS::AccountId
-      #       - Ref: AWS::Region
-      #       - account-kms
-      #       - unrestricted-key-arn
       LogGroupName:
         Fn::Sub: /aws/cloudformation/${TransformFunction}
       RetentionInDays: 30
@@ -736,9 +705,6 @@ Resources:
       - Key: custom:application
         Value:
           Ref: TagApplication
-      - Key: custom:environment
-        Value:
-          Ref: TagEnvironment
       - Key: custom:stackName
         Value:
           Ref: AWS::StackName
