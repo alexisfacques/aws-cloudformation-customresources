@@ -8,7 +8,7 @@ Description: |
   CloudFormation resource lifecycle hooks and returns the complete Boto3 method response as 'Data' fields, which can be
   retrieved in your configuration files using 'Fn::GetAtt'.
 
-  Last Modified: March 5, 2023.
+  Last Modified: March 6, 2023.
   Author: Alexis Facques <mail@alexisfacques.com>.
   Url: https://github.com/alexisfacques/aws-cloudformation-customresources
 
@@ -341,6 +341,7 @@ Resources:
         Fn::Join:
         - "-"
         - - Ref: TagApplication
+          - Ref: AWS::Region
           - botohook
       Tags:
       - Key: custom:application
@@ -611,6 +612,7 @@ Resources:
         Fn::Join:
         - "-"
         - - Ref: TagApplication
+          - Ref: AWS::Region
           - transform
       Tags:
       - Key: custom:application
@@ -759,6 +761,7 @@ Resources:
         Fn::Join:
         - "-"
         - - Ref: TagApplication
+          - Ref: AWS::Region
           - transform
           - macro
       Tags:
