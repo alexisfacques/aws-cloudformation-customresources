@@ -646,7 +646,7 @@ Install the application with AWS SAM CLI as follows:
 Alternatively, you can also let SAM guide you through this process:
 
 ```sh
-sam build --guided && sam deploy
+sam build --template-file customresources.template.yml --guided && sam deploy
 ```
 
 Once the CloudFormation stack has been created, you can instanciate custom resources by defining them in your CloudFormation templates.
